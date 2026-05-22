@@ -1,0 +1,52 @@
+{
+  "name": "ssh-access",
+  "version": "1.0.0",
+  "description": "Modern SSH Login Manager",
+  "main": "main.cjs",
+  "type": "module",
+  "scripts": {
+    "dev": "concurrently \"vite\" \"electron .\"",
+    "build": "vite build && electron-builder",
+    "preview": "vite preview"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "framer-motion": "^10.16.5",
+    "react-icons": "^4.12.0",
+    "uuid": "^9.0.1",
+    "crypto-js": "^4.2.0"
+  },
+  "devDependencies": {
+    "electron": "^28.1.0",
+    "vite": "^5.0.10",
+    "@vitejs/plugin-react": "^4.2.1",
+    "electron-builder": "^24.9.1",
+    "concurrently": "^8.2.2"
+  },
+  "build": {
+    "appId": "com.ssh.access",
+    "productName": "SSH Access Manager",
+    "directories": {
+      "output": "release"
+    },
+    "win": {
+      "target": "nsis",
+      "icon": "build/icon.png"
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": false
+    },
+    "files": [
+      "dist/**/*",
+      "main.cjs",
+      "preload.cjs",
+      "package.json"
+    ]
+  }
+}
