@@ -7,7 +7,7 @@
   "scripts": {
     "dev": "concurrently \"vite\" \"electron .\"",
     "build": "vite build && electron-builder",
-    "build:mac": "vite build && electron-builder --mac",
+    "build:mac": "vite build && electron-builder --mac --arm64 --x64",
     "build:win": "vite build && electron-builder --win",
     "preview": "vite preview"
   },
@@ -38,38 +38,11 @@
     "mac": {
       "category": "public.app-category.developer-tools",
       "target": [
-        {
-          "target": "dmg",
-          "arch": [
-            "x64",
-            "arm64"
-          ]
-        },
-        {
-          "target": "zip",
-          "arch": [
-            "x64",
-            "arm64"
-          ]
-        }
+        "dmg",
+        "zip"
       ],
-      "icon": "build/icon.png",
-      "hardenedRuntime": false,
-      "gatekeeperAssess": false
-    },
-    "dmg": {
-      "contents": [
-        {
-          "x": 130,
-          "y": 220
-        },
-        {
-          "x": 410,
-          "y": 220,
-          "type": "link",
-          "path": "/Applications"
-        }
-      ]
+      "icon": "build/icon.icns",
+      "identity": null
     },
     "win": {
       "target": "nsis",
