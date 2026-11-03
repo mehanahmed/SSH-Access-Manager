@@ -4,6 +4,7 @@ const fs = require('fs');
 const crypto = require('crypto');
 const { exec } = require('child_process');
 const { v4: uuidv4 } = require('uuid');
+const net = require('net');
 
 // Determine if we're in dev mode
 const isDev = !app.isPackaged;
@@ -510,4 +511,36 @@ End If
     }
 
     return true;
+});
+
+// 8. Check connection status
+ipcMain.handle('check-connection', async (event, { host, port }) => {
+    const p = parseInt(port, 10) || 22;
+    return new Promise((resolve) => {
+        const socket = new net.Socket();
+        let status = 'offline';
+
+        // Set a timeout of 3.5 seconds
+        socket.setTimeout(3500);
+
+        socket.on('connect', () => {
+            status = 'online';
+            socket.destroy();
+        });
+
+        socket.on('timeout', () => {
+            socket.destroy();
+        });
+
+        socket.on('error', (err) => {
+            // Socket error (connection refused or timeout)
+            socket.destroy();
+        });
+
+        socket.on('close', () => {
+            resolve({ status });
+        });
+
+        socket.connect(p, host);
+    });
 });
