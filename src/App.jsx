@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence, useMotionValue } from 'framer-motion';
-import { FiPlus, FiSearch, FiTerminal, FiEdit2, FiTrash2, FiServer, FiUser, FiLock, FiX, FiCheck, FiCopy, FiShield, FiKey, FiUpload, FiDownload } from 'react-icons/fi';
+import { FiPlus, FiSearch, FiTerminal, FiEdit2, FiTrash2, FiServer, FiUser, FiLock, FiX, FiCheck, FiCopy, FiShield, FiKey, FiUpload, FiDownload, FiRefreshCw } from 'react-icons/fi';
 import { v4 as uuidv4 } from 'uuid';
 
 const ConstellationParticles = () => {
@@ -91,7 +91,7 @@ const ConstellationParticles = () => {
             hCtx.fillStyle = 'white';
             const isSmallScreen = canvas.width < 600;
             const fontSize = isSmallScreen ? Math.min(canvas.width / 10, 40) : Math.min(canvas.width / 15, 52);
-            hCtx.font = `600 ${fontSize}px Outfit, Inter, sans-serif`;
+            hCtx.font = `600 ${fontSize}px "Outfit", "Inter", "Segoe UI", sans-serif`;
             hCtx.textAlign = 'center';
             hCtx.textBaseline = 'middle';
             
@@ -206,6 +206,24 @@ const App = () => {
     const [isLocked, setIsLocked] = useState(true);
     const [masterPasswordInfo, setMasterPasswordInfo] = useState({ hasPassword: false, input: '' });
     const [toasts, setToasts] = useState([]);
+    const [statuses, setStatuses] = useState({});
+
+    const checkConnectionStatus = async (cred) => {
+        setStatuses(prev => ({ ...prev, [cred.id]: 'checking' }));
+        try {
+            const res = await window.electron.checkConnection(cred.host, cred.port);
+            setStatuses(prev => ({ ...prev, [cred.id]: res.status }));
+        } catch (e) {
+            setStatuses(prev => ({ ...prev, [cred.id]: 'offline' }));
+        }
+    };
+
+    const checkAllStatuses = (listToCheck) => {
+        const list = listToCheck || credentials;
+        list.forEach(cred => {
+            checkConnectionStatus(cred);
+        });
+    };
 
     // Load initial state
     useEffect(() => {
@@ -217,7 +235,11 @@ const App = () => {
         if (data.error) {
             addToast('Error loading credentials', 'error');
         } else {
-            setCredentials(Array.isArray(data) ? data : []);
+            const list = Array.isArray(data) ? data : [];
+            setCredentials(list);
+            list.forEach(cred => {
+                checkConnectionStatus(cred);
+            });
         }
     };
 
@@ -289,6 +311,9 @@ const App = () => {
         const res = await window.electron.importCredentials();
         if (res.success) {
             setCredentials(res.list);
+            res.list.forEach(cred => {
+                checkConnectionStatus(cred);
+            });
             if (res.importedCount > 0) {
                 let msg = `Imported ${res.importedCount} new connection(s)`;
                 if (res.skippedCount > 0) {
@@ -346,6 +371,9 @@ const App = () => {
                     <button className="btn btn-secondary" style={{ padding: '12px', minWidth: '44px', borderRadius: '50%', justifyContent: 'center' }} title="Export Backup (.ssh)" onClick={handleExport}>
                         <FiDownload size={20} />
                     </button>
+                    <button className="btn btn-secondary" style={{ padding: '12px', minWidth: '44px', borderRadius: '50%', justifyContent: 'center' }} title="Refresh All Statuses" onClick={() => checkAllStatuses()}>
+                        <FiRefreshCw size={20} />
+                    </button>
                     <button className="btn" style={{ padding: '12px', minWidth: '44px', borderRadius: '50%', justifyContent: 'center' }} title="Add Connection" onClick={() => { setCurrentCredential(null); setIsModalOpen(true); }}>
                         <FiPlus size={20} />
                     </button>
@@ -366,10 +394,23 @@ const App = () => {
                             onClick={() => handleLaunch(cred)}
                         >
                             <div className="card-header">
-                                <div className="card-title" title={cred.label || cred.host}>
-                                    {cred.label || cred.host}
+                                <div className="card-title-wrapper">
+                                    <span 
+                                        className={`status-dot ${statuses[cred.id] || 'unchecked'}`} 
+                                        title={`Status: ${statuses[cred.id] || 'unchecked'}`}
+                                    />
+                                    <div className="card-title" title={cred.label || cred.host}>
+                                        {cred.label || cred.host}
+                                    </div>
                                 </div>
                                 <div className="card-actions">
+                                    <button 
+                                        className={`btn-icon ${statuses[cred.id] === 'checking' ? 'refreshing' : ''}`} 
+                                        title="Check Status" 
+                                        onClick={(e) => { e.stopPropagation(); checkConnectionStatus(cred); }}
+                                    >
+                                        <FiRefreshCw />
+                                    </button>
                                     <button className="btn-icon" title="Copy Password" onClick={(e) => handleCopyPassword(e, cred.password)}><FiCopy /></button>
                                     <button className="btn-icon" title="Edit" onClick={(e) => { e.stopPropagation(); setCurrentCredential(cred); setIsModalOpen(true); }}><FiEdit2 /></button>
                                     <button className="btn-icon" title="Delete" style={{ color: 'var(--danger)' }} onClick={(e) => handleDelete(e, cred.id)}><FiTrash2 /></button>

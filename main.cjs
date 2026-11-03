@@ -305,13 +305,84 @@ ipcMain.handle('import-credentials', async () => {
 // 7. Launch SSH
 ipcMain.handle('launch-ssh', async (event, { username, host, port, password, remotePath, command }) => {
     const p = port || 22;
-    const tempTitle = `SSH_LOGIN_${Date.now()}`;
 
-    // Helper to escape for cmd
-    const cmdEscape = (text) => {
-        if (!text) return "";
-        return `"${text.replace(/"/g, '""')}"`;
-    };
+    // ==========================================
+    // macOS Platform Handling
+    // ==========================================
+    if (process.platform === 'darwin') {
+        const knownHostsOption = '-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null';
+
+        if (!password && !remotePath && !command) {
+            const appleScript = `tell application "Terminal"
+    activate
+    do script "ssh ${knownHostsOption} ${username}@${host} -p ${p}"
+end tell`;
+            exec(`osascript -e ${JSON.stringify(appleScript)}`, (error) => {
+                if (error) console.error(`macOS Terminal error: ${error}`);
+            });
+            return true;
+        }
+
+        // Automated login using macOS expect and Terminal.app (.command executable script)
+        const scriptPath = path.join(app.getPath('temp'), `ssh_login_${Date.now()}.command`);
+        const escapeExpect = (str) => (str || '').replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\$/g, '\\$');
+        
+        const safePass = escapeExpect(password);
+        const safePath = escapeExpect(remotePath);
+        const safeCmd = escapeExpect(command);
+
+        let expectScript = '#!/usr/bin/expect -f\n';
+        expectScript += 'set timeout 30\n';
+        expectScript += `spawn ssh ${knownHostsOption} ${username}@${host} -p ${p}\n`;
+        expectScript += 'expect {\n';
+        expectScript += '    -nocase "are you sure you want to continue connecting" {\n';
+        expectScript += '        send "yes\\r"\n';
+        expectScript += '        exp_continue\n';
+        expectScript += '    }\n';
+        expectScript += '    -nocase "password:" {\n';
+        expectScript += `        send "${safePass}\\r"\n`;
+        expectScript += '        exp_continue\n';
+        expectScript += '    }\n';
+        expectScript += '    -re "([$#%>]|\\$) ?" {\n';
+        if (remotePath) {
+            expectScript += `        send "cd \\"${safePath}\\" && clear\\r"\n`;
+        }
+        if (command) {
+            expectScript += `        send "${safeCmd}\\r"\n`;
+        }
+        expectScript += '        interact\n';
+        expectScript += '    }\n';
+        expectScript += '    timeout {\n';
+        expectScript += '        send_user "\\n[Connection timeout]\\n"\n';
+        expectScript += '        interact\n';
+        expectScript += '    }\n';
+        expectScript += '    eof {\n';
+        expectScript += '        send_user "\\n[Connection closed]\\n"\n';
+        expectScript += '    }\n';
+        expectScript += '}\n';
+        expectScript += 'interact\n';
+
+        try {
+            fs.writeFileSync(scriptPath, expectScript, { mode: 0o755 });
+            exec(`open "${scriptPath}"`, (error) => {
+                if (error) console.error(`macOS open error: ${error}`);
+                setTimeout(() => {
+                    if (fs.existsSync(scriptPath)) {
+                        try { fs.unlinkSync(scriptPath); } catch (e) {}
+                    }
+                }, 25000);
+            });
+            return true;
+        } catch (err) {
+            console.error("Failed to run macOS SSH script:", err);
+            return false;
+        }
+    }
+
+    // ==========================================
+    // Windows Platform Handling
+    // ==========================================
+    const tempTitle = `SSH_LOGIN_${Date.now()}`;
 
     // Common SSH options to ensure a smooth, unattended connection
     const sshOptions = '-o StrictHostKeyChecking=no -o UserKnownHostsFile=NUL';

@@ -20,7 +20,7 @@
 
 body {
   margin: 0;
-  font-family: 'Outfit', 'Inter', system-ui, -apple-system, sans-serif;
+  font-family: "Outfit", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   background-color: #000000;
   color: var(--text-primary);
   overflow-x: hidden;
@@ -378,4 +378,65 @@ input, textarea, button, .selectable {
 
 .card:nth-child(n) {
   animation: fadeIn 0.4s ease-out forwards;
-}
+}
+
+/* Connection Status Indicator Styles */
+.card-title-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.status-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  display: inline-block;
+  flex-shrink: 0;
+  transition: background-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.status-dot.online {
+  background-color: var(--success);
+  box-shadow: 0 0 8px var(--success), 0 0 3px var(--success);
+}
+
+.status-dot.offline {
+  background-color: var(--danger);
+  box-shadow: 0 0 8px var(--danger), 0 0 3px var(--danger);
+}
+
+.status-dot.checking {
+  background-color: #f59e0b; /* Amber */
+  box-shadow: 0 0 8px #f59e0b;
+  animation: pulse-checking 1.2s infinite ease-in-out;
+}
+
+.status-dot.unchecked {
+  background-color: #94a3b8; /* Muted slate */
+}
+
+@keyframes pulse-checking {
+  0% {
+    transform: scale(0.9);
+    opacity: 0.6;
+  }
+  50% {
+    transform: scale(1.1);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(0.9);
+    opacity: 0.6;
+  }
+}
+
+.btn-icon.refreshing svg {
+  animation: spin-refresh 1.2s infinite linear;
+}
+
+@keyframes spin-refresh {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
