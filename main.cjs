@@ -325,8 +325,21 @@ end tell`;
 
         // Automated login using macOS expect and Terminal.app (.command executable script)
         const scriptPath = path.join(app.getPath('temp'), `ssh_login_${Date.now()}.command`);
-        const escapeExpect = (str) => (str || '').replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\$/g, '\\$');
-        
+        // Escape special characters for Tcl/Expect: backslash, quotes, $, and brackets
+        const escapeExpect = (str) => {
+            if (!str) return '';
+            let out = '';
+            for (let i = 0; i < str.length; i++) {
+                const c = str[i];
+                if (c === '\\' || c === '"' || c === '$' || c === '[' || c === ']') {
+                    out += '\\' + c;
+                } else {
+                    out += c;
+                }
+            }
+            return out;
+        };
+
         const safePass = escapeExpect(password);
         const safePath = escapeExpect(remotePath);
         const safeCmd = escapeExpect(command);
@@ -339,28 +352,39 @@ end tell`;
         expectScript += '        send "yes\\r"\n';
         expectScript += '        exp_continue\n';
         expectScript += '    }\n';
-        expectScript += '    -nocase "password:" {\n';
-        expectScript += `        send "${safePass}\\r"\n`;
-        expectScript += '        exp_continue\n';
-        expectScript += '    }\n';
-        expectScript += '    -re "([$#%>]|\\$) ?" {\n';
-        if (remotePath) {
-            expectScript += `        send "cd \\"${safePath}\\" && clear\\r"\n`;
+        if (password) {
+            expectScript += '    -nocase "password:" {\n';
+            expectScript += `        send "${safePass}\\r"\n`;
+            expectScript += '    }\n';
+            expectScript += '    -nocase "password for" {\n';
+            expectScript += `        send "${safePass}\\r"\n`;
+            expectScript += '    }\n';
         }
-        if (command) {
-            expectScript += `        send "${safeCmd}\\r"\n`;
-        }
-        expectScript += '        interact\n';
-        expectScript += '    }\n';
         expectScript += '    timeout {\n';
         expectScript += '        send_user "\\n[Connection timeout]\\n"\n';
         expectScript += '        interact\n';
+        expectScript += '        exit\n';
         expectScript += '    }\n';
         expectScript += '    eof {\n';
         expectScript += '        send_user "\\n[Connection closed]\\n"\n';
+        expectScript += '        exit\n';
         expectScript += '    }\n';
         expectScript += '}\n';
-        expectScript += 'interact\n';
+
+        if (remotePath || command) {
+            expectScript += 'set timeout 8\n';
+            expectScript += 'expect {\n';
+            expectScript += '    -re {[$#%>] ?} { }\n';
+            expectScript += '    timeout { }\n';
+            expectScript += '}\n';
+            if (remotePath) {
+                expectScript += `send "cd \\"${safePath}\\" && clear\\r"\n`;
+            }
+            if (command) {
+                expectScript += `send "${safeCmd}\\r"\n`;
+            }
+        }
+        expectScript += 'interact\n\n';
 
         try {
             fs.writeFileSync(scriptPath, expectScript, { mode: 0o755 });
